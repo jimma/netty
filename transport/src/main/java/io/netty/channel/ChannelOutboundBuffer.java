@@ -26,7 +26,6 @@ import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.buffer.UnpooledDirectByteBuf;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.Recycler;
-import io.netty.util.Recycler.Handle;
 import io.netty.util.ReferenceCountUtil;
 import io.netty.util.internal.SystemPropertyUtil;
 import io.netty.util.internal.logging.InternalLogger;
@@ -42,7 +41,7 @@ import java.util.concurrent.atomic.AtomicLongFieldUpdater;
  * (Transport implementors only) an internal data structure used by {@link AbstractChannel} to store its pending
  * outbound write requests.
  */
-public final class ChannelOutboundBuffer {
+public class ChannelOutboundBuffer {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(ChannelOutboundBuffer.class);
 
@@ -55,24 +54,7 @@ public final class ChannelOutboundBuffer {
         logger.debug("-Dio.netty.threadLocalDirectBufferSize: {}", threadLocalDirectBufferSize);
     }
 
-    private static final Recycler<ChannelOutboundBuffer> RECYCLER = new Recycler<ChannelOutboundBuffer>() {
-        @Override
-        protected ChannelOutboundBuffer newObject(Handle handle) {
-            return new ChannelOutboundBuffer(handle);
-        }
-    };
-
-    static ChannelOutboundBuffer newInstance(AbstractChannel channel) {
-        ChannelOutboundBuffer buffer = RECYCLER.get();
-        buffer.channel = channel;
-        buffer.totalPendingSize = 0;
-        buffer.writable = 1;
-        return buffer;
-    }
-
-    private final Handle handle;
-
-    private AbstractChannel channel;
+    private final AbstractChannel channel;
 
     private Entry first;
     private Entry last;
@@ -95,8 +77,8 @@ public final class ChannelOutboundBuffer {
 
     private volatile int writable = 1;
 
-    private ChannelOutboundBuffer(Handle handle) {
-        this.handle = handle;
+    public ChannelOutboundBuffer(AbstractChannel channel) {
+        this.channel = channel;
         nioBuffers = new ByteBuffer[INITIAL_CAPACITY];
     }
 
@@ -277,8 +259,6 @@ public final class ChannelOutboundBuffer {
         ChannelPromise promise = e.promise;
         int size = e.pendingSize;
 
-        e.clear();
-
         safeRelease(msg);
 
         messages--;
@@ -304,8 +284,6 @@ public final class ChannelOutboundBuffer {
         Object msg = e.msg;
         ChannelPromise promise = e.promise;
         int size = e.pendingSize;
-
-        e.clear();
 
         messages--;
         flushed--;
@@ -568,11 +546,6 @@ public final class ChannelOutboundBuffer {
         messages = 0;
         first = null;
         last = null;
-
-        // Set the channel to null so it can be GC'ed ASAP
-        channel = null;
-
-        RECYCLER.recycle(this, handle);
     }
 
     private static final class Entry {
@@ -586,19 +559,6 @@ public final class ChannelOutboundBuffer {
         int count = -1;
         Entry next;
         Entry prev;
-
-        public void clear() {
-            buffers = null;
-            buf = null;
-            msg = null;
-            promise = null;
-            progress = 0;
-            total = 0;
-            pendingSize = 0;
-            count = -1;
-            next = null;
-            prev = null;
-        }
     }
 
     static final class ThreadLocalPooledByteBuf extends UnpooledDirectByteBuf {
