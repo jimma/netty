@@ -25,6 +25,7 @@ import io.netty.channel.ChannelPromise;
 import io.netty.channel.EventLoop;
 import io.netty.channel.FileRegion;
 import io.netty.channel.nio.AbstractNioByteChannel;
+import io.netty.channel.nio.NioByteChannelOutboundBuffer;
 import io.netty.channel.socket.DefaultSocketChannelConfig;
 import io.netty.channel.socket.ServerSocketChannel;
 import io.netty.channel.socket.SocketChannelConfig;
@@ -223,15 +224,16 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
     }
 
     @Override
-    protected void doWrite(ChannelOutboundBuffer in) throws Exception {
+    protected void doWrite(ChannelOutboundBuffer buffer) throws Exception {
         for (;;) {
             // Do non-gathering write for a single buffer case.
-            final int msgCount = in.size();
+            final int msgCount = buffer.size();
             if (msgCount <= 1) {
-                super.doWrite(in);
+                super.doWrite(buffer);
                 return;
             }
 
+            NioByteChannelOutboundBuffer in = (NioByteChannelOutboundBuffer) buffer;
             // Ensure the pending writes are made of ByteBufs only.
             ByteBuffer[] nioBuffers = in.nioBuffers();
             if (nioBuffers == null) {

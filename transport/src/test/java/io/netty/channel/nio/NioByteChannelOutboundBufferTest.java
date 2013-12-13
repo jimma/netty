@@ -13,10 +13,12 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package io.netty.channel;
+package io.netty.channel.nio;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.CompositeByteBuf;
+import io.netty.channel.AbstractChannel;
+import io.netty.channel.ChannelOutboundBuffer;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.util.CharsetUtil;
 import org.junit.Test;
@@ -26,7 +28,7 @@ import java.nio.ByteBuffer;
 import static io.netty.buffer.Unpooled.*;
 import static org.junit.Assert.*;
 
-public class ChannelOutboundBufferTest {
+public class NioByteChannelOutboundBufferTest {
 
     @Test
     public void testEmptyNioBuffers() {

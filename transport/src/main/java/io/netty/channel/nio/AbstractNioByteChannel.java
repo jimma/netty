@@ -53,6 +53,11 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
         return new NioByteUnsafe();
     }
 
+    @Override
+    protected ChannelOutboundBuffer newOutboundBuffer() {
+        return new NioByteChannelOutboundBuffer(this);
+    }
+
     private final class NioByteUnsafe extends AbstractNioUnsafe {
         private RecvByteBufAllocator.Handle allocHandle;
 
@@ -142,7 +147,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
         int writeSpinCount = -1;
 
         for (;;) {
-            Object msg = in.current(true);
+            Object msg = in.current();
             if (msg == null) {
                 // Wrote all messages.
                 clearOpWrite();
