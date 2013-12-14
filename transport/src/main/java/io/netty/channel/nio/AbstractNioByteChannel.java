@@ -53,11 +53,6 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
         return new NioByteUnsafe();
     }
 
-    @Override
-    protected ChannelOutboundBuffer newOutboundBuffer() {
-        return new NioByteChannelOutboundBuffer(this);
-    }
-
     private final class NioByteUnsafe extends AbstractNioUnsafe {
         private RecvByteBufAllocator.Handle allocHandle;
 

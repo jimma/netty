@@ -13,36 +13,26 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package io.netty.channel.nio;
+package io.netty.channel.socket.nio;
 
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
-import io.netty.buffer.UnpooledByteBufAllocator;
-import io.netty.buffer.UnpooledDirectByteBuf;
 import io.netty.channel.AbstractChannel;
 import io.netty.channel.ChannelOutboundBuffer;
 import io.netty.channel.ChannelPromise;
-import io.netty.util.Recycler;
-import io.netty.util.internal.SystemPropertyUtil;
 
 import java.nio.ByteBuffer;
 
-public final class NioByteChannelOutboundBuffer extends ChannelOutboundBuffer {
+final class NioSocketChannelOutboundBuffer extends ChannelOutboundBuffer {
 
     private static final int INITIAL_CAPACITY = 32;
-    private static final int threadLocalDirectBufferSize;
-
-    static {
-        threadLocalDirectBufferSize = SystemPropertyUtil.getInt("io.netty.threadLocalDirectBufferSize", 64 * 1024);
-        logger.debug("-Dio.netty.threadLocalDirectBufferSize: {}", threadLocalDirectBufferSize);
-    }
 
     private ByteBuffer[] nioBuffers;
     private int nioBufferCount;
     private long nioBufferSize;
 
-    NioByteChannelOutboundBuffer(AbstractChannel channel) {
+    NioSocketChannelOutboundBuffer(AbstractChannel channel) {
         super(channel);
         nioBuffers = new ByteBuffer[INITIAL_CAPACITY];
     }
@@ -209,38 +199,6 @@ public final class NioByteChannelOutboundBuffer extends ChannelOutboundBuffer {
         @Override
         public NioEntry prev() {
             return (NioEntry) super.prev();
-        }
-    }
-
-    static final class ThreadLocalPooledByteBuf extends UnpooledDirectByteBuf {
-        private final Recycler.Handle handle;
-
-        private static final Recycler<ThreadLocalPooledByteBuf> RECYCLER = new Recycler<ThreadLocalPooledByteBuf>() {
-            @Override
-            protected ThreadLocalPooledByteBuf newObject(Handle handle) {
-                return new ThreadLocalPooledByteBuf(handle);
-            }
-        };
-
-        private ThreadLocalPooledByteBuf(Recycler.Handle handle) {
-            super(UnpooledByteBufAllocator.DEFAULT, 256, Integer.MAX_VALUE);
-            this.handle = handle;
-        }
-
-        static ThreadLocalPooledByteBuf newInstance() {
-            ThreadLocalPooledByteBuf buf = RECYCLER.get();
-            buf.setRefCnt(1);
-            return buf;
-        }
-
-        @Override
-        protected void deallocate() {
-            if (capacity() > threadLocalDirectBufferSize) {
-                super.deallocate();
-            } else {
-                clear();
-                RECYCLER.recycle(this, handle);
-            }
         }
     }
 }
