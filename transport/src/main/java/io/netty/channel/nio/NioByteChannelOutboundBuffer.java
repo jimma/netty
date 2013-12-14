@@ -30,7 +30,7 @@ import java.nio.ByteBuffer;
 
 public final class NioByteChannelOutboundBuffer extends ChannelOutboundBuffer {
 
-private static final int INITIAL_CAPACITY = 32;
+    private static final int INITIAL_CAPACITY = 32;
     private static final int threadLocalDirectBufferSize;
 
     static {
@@ -48,51 +48,37 @@ private static final int INITIAL_CAPACITY = 32;
     }
 
     @Override
-    protected void addMessage(Object msg, ChannelPromise promise) {
-        super.addMessage(msg, promise);
+    protected long addMessage(Object msg, ChannelPromise promise) {
+        if (msg instanceof ByteBuf) {
+            ByteBuf buf = (ByteBuf) msg;
+            if (!buf.isDirect()) {
+                int readableBytes = buf.readableBytes();
+                if (readableBytes == 0) {
+                    // TODO: Optimize
+                    return super.addMessage(msg, promise);
+                }
+
+                // Non-direct buffers are copied into JDK's own internal direct buffer on every I/O.
+                // We can do a better job by using our pooled allocator. If the current allocator does not
+                // pool a direct buffer, we use a ThreadLocal based pool.
+                ByteBufAllocator alloc = channel.alloc();
+                ByteBuf directBuf;
+                if (alloc.isDirectBufferPooled()) {
+                    directBuf = alloc.directBuffer(readableBytes);
+                } else {
+                    directBuf = ThreadLocalPooledByteBuf.newInstance();
+                }
+                directBuf.writeBytes(buf, buf.readerIndex(), readableBytes);
+                safeRelease(msg);
+                msg = directBuf;
+            }
+        }
+        return super.addMessage(msg, promise);
     }
 
     @Override
     protected void addFlush() {
         super.addFlush();
-    }
-
-    @Override
-    public Object current() {
-        if (isEmpty()) {
-            return null;
-        } else {
-            Object msg = super.current();
-            if (threadLocalDirectBufferSize <= 0) {
-                return msg;
-            }
-            if (msg instanceof ByteBuf) {
-                ByteBuf buf = (ByteBuf) msg;
-                if (buf.isDirect()) {
-                    return buf;
-                } else {
-                    int readableBytes = buf.readableBytes();
-                    if (readableBytes == 0) {
-                        return buf;
-                    }
-
-                    // Non-direct buffers are copied into JDK's own internal direct buffer on every I/O.
-                    // We can do a better job by using our pooled allocator. If the current allocator does not
-                    // pool a direct buffer, we use a ThreadLocal based pool.
-                    ByteBufAllocator alloc = channel.alloc();
-                    ByteBuf directBuf;
-                    if (alloc.isDirectBufferPooled()) {
-                        directBuf = alloc.directBuffer(readableBytes);
-                    } else {
-                        directBuf = ThreadLocalPooledByteBuf.newInstance();
-                    }
-                    directBuf.writeBytes(buf, buf.readerIndex(), readableBytes);
-                    current(directBuf);
-                    return directBuf;
-                }
-            }
-            return msg;
-        }
     }
 
     /**
@@ -111,7 +97,6 @@ private static final int INITIAL_CAPACITY = 32;
         int nioBufferCount = 0;
 
         if (!isEmpty()) {
-            final ByteBufAllocator alloc = channel.alloc();
             ByteBuffer[] nioBuffers = this.nioBuffers;
             NioEntry entry = (NioEntry) first;
             int i = flushed;
@@ -139,26 +124,21 @@ private static final int INITIAL_CAPACITY = 32;
                         this.nioBuffers = nioBuffers = expandNioBufferArray(nioBuffers, neededSpace, nioBufferCount);
                     }
 
-                    if (buf.isDirect() || threadLocalDirectBufferSize <= 0) {
-                        if (count == 1) {
-                            ByteBuffer nioBuf = entry.buf;
-                            if (nioBuf == null) {
-                                // cache ByteBuffer as it may need to create a new ByteBuffer instance if its a
-                                // derived buffer
-                                entry.buf = nioBuf = buf.internalNioBuffer(readerIndex, readableBytes);
-                            }
-                            nioBuffers[nioBufferCount ++] = nioBuf;
-                        } else {
-                            ByteBuffer[] nioBufs = entry.buffers;
-                            if (nioBufs == null) {
-                                // cached ByteBuffers as they may be expensive to create in terms of Object allocation
-                                entry.buffers = nioBufs = buf.nioBuffers();
-                            }
-                            nioBufferCount = fillBufferArray(nioBufs, nioBuffers, nioBufferCount);
+                    if (count == 1) {
+                        ByteBuffer nioBuf = entry.buf;
+                        if (nioBuf == null) {
+                            // cache ByteBuffer as it may need to create a new ByteBuffer instance if its a
+                            // derived buffer
+                            entry.buf = nioBuf = buf.internalNioBuffer(readerIndex, readableBytes);
                         }
+                        nioBuffers[nioBufferCount ++] = nioBuf;
                     } else {
-                        nioBufferCount = fillBufferArrayNonDirect(entry, buf, readerIndex,
-                                readableBytes, alloc, nioBuffers, nioBufferCount);
+                        ByteBuffer[] nioBufs = entry.buffers;
+                        if (nioBufs == null) {
+                            // cached ByteBuffers as they may be expensive to create in terms of Object allocation
+                            entry.buffers = nioBufs = buf.nioBuffers();
+                        }
+                        nioBufferCount = fillBufferArray(nioBufs, nioBuffers, nioBufferCount);
                     }
                 }
                 if (--i == 0) {
@@ -181,24 +161,6 @@ private static final int INITIAL_CAPACITY = 32;
             }
             nioBuffers[nioBufferCount ++] = nioBuf;
         }
-        return nioBufferCount;
-    }
-
-    private static int fillBufferArrayNonDirect(NioEntry entry, ByteBuf buf, int readerIndex, int readableBytes,
-                                                ByteBufAllocator alloc, ByteBuffer[] nioBuffers, int nioBufferCount) {
-        ByteBuf directBuf;
-        if (alloc.isDirectBufferPooled()) {
-            directBuf = alloc.directBuffer(readableBytes);
-        } else {
-            directBuf = ThreadLocalPooledByteBuf.newInstance();
-        }
-        directBuf.writeBytes(buf, readerIndex, readableBytes);
-        buf.release();
-        entry.replaceMessage(directBuf);
-        // cache ByteBuffer
-        ByteBuffer nioBuf = entry.buf = directBuf.internalNioBuffer(0, readableBytes);
-        entry.count = 1;
-        nioBuffers[nioBufferCount ++] = nioBuf;
         return nioBufferCount;
     }
 
@@ -247,10 +209,6 @@ private static final int INITIAL_CAPACITY = 32;
         @Override
         public NioEntry prev() {
             return (NioEntry) super.prev();
-        }
-
-        protected void replaceMessage(Object msg) {
-            this.msg = msg;
         }
     }
 

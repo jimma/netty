@@ -167,16 +167,6 @@ public class ChannelOutboundBuffer {
         }
     }
 
-    /**
-     * Replace the current msg with the given one.
-     * The replaced msg will automatically be released
-     */
-    public void current(Object msg) {
-        Entry entry = first;
-        safeRelease(entry.msg);
-        entry.msg = msg;
-    }
-
     public void progress(long amount) {
         Entry e = first;
         ChannelPromise p = e.promise;
@@ -303,7 +293,7 @@ public class ChannelOutboundBuffer {
         }
     }
 
-    private static void safeRelease(Object message) {
+    protected static void safeRelease(Object message) {
         try {
             ReferenceCountUtil.release(message);
         } catch (Throwable t) {

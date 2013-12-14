@@ -26,7 +26,6 @@ import io.netty.channel.ChannelMetadata;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelOutboundBuffer;
 import io.netty.channel.ChannelPromise;
-import io.netty.channel.DefaultAddressedEnvelope;
 import io.netty.channel.EventLoop;
 import io.netty.channel.RecvByteBufAllocator;
 import io.netty.channel.nio.AbstractNioMessageChannel;
@@ -278,25 +277,7 @@ public final class NioDatagramChannel
         } else {
             writtenBytes = javaChannel().write(nioData);
         }
-
-        boolean done =  writtenBytes > 0;
-        if (needsCopy) {
-            // This means we have allocated a new buffer and need to store it back so we not need to allocate it again
-            // later
-            if (remoteAddress == null) {
-                // remoteAddress is null which means we can handle it as ByteBuf directly
-                in.current(data);
-            } else {
-                if (!done) {
-                    // store it back with all the needed informations
-                    in.current(new DefaultAddressedEnvelope<ByteBuf, SocketAddress>(data, remoteAddress));
-                } else {
-                    // Just store back the new create buffer so it is cleaned up once in.remove() is called.
-                    in.current(data);
-                }
-            }
-        }
-        return done;
+        return writtenBytes > 0;
     }
 
     @Override

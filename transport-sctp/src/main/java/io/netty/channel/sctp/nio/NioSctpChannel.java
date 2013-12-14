@@ -325,13 +325,6 @@ public class NioSctpChannel extends AbstractNioMessageChannel implements io.nett
         final int writtenBytes = javaChannel().send(nioData, mi);
 
         boolean done = writtenBytes > 0;
-        if (needsCopy) {
-            if (!done) {
-                in.current(new SctpMessage(mi, data));
-            } else {
-                in.current(data);
-            }
-        }
         return done;
     }
 
