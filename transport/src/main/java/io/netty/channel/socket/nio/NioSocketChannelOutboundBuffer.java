@@ -17,14 +17,12 @@ package io.netty.channel.socket.nio;
 
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.AbstractChannel;
 import io.netty.channel.ChannelOutboundBuffer;
-import io.netty.channel.ChannelPromise;
 
 import java.nio.ByteBuffer;
 
-final class NioSocketChannelOutboundBuffer extends ChannelOutboundBuffer {
+final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuffer {
 
     private static final int INITIAL_CAPACITY = 32;
 
@@ -35,35 +33,6 @@ final class NioSocketChannelOutboundBuffer extends ChannelOutboundBuffer {
     NioSocketChannelOutboundBuffer(AbstractChannel channel) {
         super(channel);
         nioBuffers = new ByteBuffer[INITIAL_CAPACITY];
-    }
-
-    @Override
-    protected long addMessage(Object msg, ChannelPromise promise) {
-        if (msg instanceof ByteBuf) {
-            ByteBuf buf = (ByteBuf) msg;
-            if (!buf.isDirect()) {
-                int readableBytes = buf.readableBytes();
-                if (readableBytes == 0) {
-                    // TODO: Optimize
-                    return super.addMessage(msg, promise);
-                }
-
-                // Non-direct buffers are copied into JDK's own internal direct buffer on every I/O.
-                // We can do a better job by using our pooled allocator. If the current allocator does not
-                // pool a direct buffer, we use a ThreadLocal based pool.
-                ByteBufAllocator alloc = channel.alloc();
-                ByteBuf directBuf;
-                if (alloc.isDirectBufferPooled()) {
-                    directBuf = alloc.directBuffer(readableBytes);
-                } else {
-                    directBuf = ThreadLocalPooledByteBuf.newInstance();
-                }
-                directBuf.writeBytes(buf, buf.readerIndex(), readableBytes);
-                safeRelease(msg);
-                msg = directBuf;
-            }
-        }
-        return super.addMessage(msg, promise);
     }
 
     @Override
