@@ -58,7 +58,7 @@ public class ChannelOutboundBuffer {
         this.channel = channel;
     }
 
-    protected void addMessage(Object msg, ChannelPromise promise) {
+    protected long addMessage(Object msg, ChannelPromise promise) {
         int size = channel.estimatorHandle().size(msg);
         if (size < 0) {
             size = 0;
@@ -83,6 +83,7 @@ public class ChannelOutboundBuffer {
         // increment pending bytes after adding message to the unflushed arrays.
         // See https://github.com/netty/netty/issues/1619
         incrementPendingOutboundBytes(size);
+        return size;
     }
 
     protected void addFlush() {
@@ -197,17 +198,9 @@ public class ChannelOutboundBuffer {
             last = null;
         }
 
-        Object msg = e.msg;
-        ChannelPromise promise = e.promise;
-        int size = e.pendingSize;
-
-        safeRelease(msg);
-
         messages--;
         flushed--;
-
-        promise.trySuccess();
-        decrementPendingOutboundBytes(size);
+        e.sucess();
 
         return true;
     }
@@ -223,17 +216,9 @@ public class ChannelOutboundBuffer {
             last = null;
         }
 
-        Object msg = e.msg;
-        ChannelPromise promise = e.promise;
-        int size = e.pendingSize;
-
         messages--;
         flushed--;
-
-        safeRelease(msg);
-
-        safeFail(promise, cause);
-        decrementPendingOutboundBytes(size);
+        e.fail(cause);
 
         return true;
     }
@@ -299,10 +284,7 @@ public class ChannelOutboundBuffer {
         try {
             for (int i = 0; i < unflushedCount; i++) {
                 Entry e = last;
-                safeRelease(e.msg);
-                e.msg = null;
-                safeFail(e.promise, cause);
-                e.promise = null;
+                e.fail(cause, false);
 
                 // Just decrease; do not trigger any events via decrementPendingOutboundBytes()
                 int size = e.pendingSize;
@@ -313,7 +295,6 @@ public class ChannelOutboundBuffer {
                     newWriteBufferSize = oldValue - size;
                 }
 
-                e.pendingSize = 0;
                 last = e.prev;
             }
         } finally {
@@ -359,6 +340,24 @@ public class ChannelOutboundBuffer {
 
         public Object msg() {
             return msg;
+        }
+
+        public void sucess() {
+            safeRelease(msg);
+            promise.trySuccess();
+            decrementPendingOutboundBytes(pendingSize);
+        }
+
+        public void fail(Throwable cause) {
+            fail(cause, true);
+        }
+
+        public void fail(Throwable cause, boolean decrementAndNotify) {
+            safeRelease(msg);
+            safeFail(promise, cause);
+            if (decrementAndNotify) {
+                decrementPendingOutboundBytes(pendingSize);
+            }
         }
     }
 }
