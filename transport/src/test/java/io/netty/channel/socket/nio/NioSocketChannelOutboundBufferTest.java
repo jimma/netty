@@ -39,11 +39,13 @@ public class NioSocketChannelOutboundBufferTest {
         EasyMock.expect(config.getWriteBufferLowWaterMark()).andReturn(Integer.MAX_VALUE).anyTimes();
         EasyMock.expect(config.getMessageSizeEstimator()).andReturn(DefaultMessageSizeEstimator.DEFAULT).anyTimes();
 
-        ChannelPromise promise = EasyMock.createMock(ChannelPromise.class);
-        EasyMock.expect(promise.trySuccess()).andReturn(true).anyTimes();
-
         NioSocketChannel channel = EasyMock.createMock(NioSocketChannel.class);
         EasyMock.expect(channel.config()).andReturn(config).anyTimes();
+
+        ChannelPromise promise = EasyMock.createMock(ChannelPromise.class);
+        EasyMock.expect(promise.trySuccess()).andReturn(true).anyTimes();
+        EasyMock.expect(promise.channel()).andReturn(channel).anyTimes();
+
         EasyMock.replay(config, promise, channel);
 
         NioSocketChannelOutboundBuffer buffer = new NioSocketChannelOutboundBuffer(channel);
@@ -65,11 +67,13 @@ public class NioSocketChannelOutboundBufferTest {
         EasyMock.expect(config.getWriteBufferLowWaterMark()).andReturn(Integer.MAX_VALUE).anyTimes();
         EasyMock.expect(config.getMessageSizeEstimator()).andReturn(DefaultMessageSizeEstimator.DEFAULT).anyTimes();
 
-        ChannelPromise promise = EasyMock.createMock(ChannelPromise.class);
-        EasyMock.expect(promise.trySuccess()).andReturn(true).anyTimes();
-
         NioSocketChannel channel = EasyMock.createMock(NioSocketChannel.class);
         EasyMock.expect(channel.config()).andReturn(config).anyTimes();
+
+        ChannelPromise promise = EasyMock.createMock(ChannelPromise.class);
+        EasyMock.expect(promise.trySuccess()).andReturn(true).anyTimes();
+        EasyMock.expect(promise.channel()).andReturn(channel).anyTimes();
+
         EasyMock.replay(config, promise, channel);
 
         NioSocketChannelOutboundBuffer buffer = new NioSocketChannelOutboundBuffer(channel);
@@ -110,11 +114,14 @@ public class NioSocketChannelOutboundBufferTest {
         EasyMock.expect(config.getWriteBufferHighWaterMark()).andReturn(Integer.MAX_VALUE).anyTimes();
         EasyMock.expect(config.getWriteBufferLowWaterMark()).andReturn(Integer.MAX_VALUE).anyTimes();
         EasyMock.expect(config.getMessageSizeEstimator()).andReturn(DefaultMessageSizeEstimator.DEFAULT).anyTimes();
-        ChannelPromise promise = EasyMock.createMock(ChannelPromise.class);
-        EasyMock.expect(promise.trySuccess()).andReturn(true).anyTimes();
 
         NioSocketChannel channel = EasyMock.createMock(NioSocketChannel.class);
         EasyMock.expect(channel.config()).andReturn(config).anyTimes();
+
+        ChannelPromise promise = EasyMock.createMock(ChannelPromise.class);
+        EasyMock.expect(promise.trySuccess()).andReturn(true).anyTimes();
+        EasyMock.expect(promise.channel()).andReturn(channel).anyTimes();
+
         EasyMock.replay(config, promise, channel);
 
         NioSocketChannelOutboundBuffer buffer = new NioSocketChannelOutboundBuffer(channel);
@@ -146,11 +153,14 @@ public class NioSocketChannelOutboundBufferTest {
         EasyMock.expect(config.getWriteBufferHighWaterMark()).andReturn(Integer.MAX_VALUE).anyTimes();
         EasyMock.expect(config.getWriteBufferLowWaterMark()).andReturn(Integer.MAX_VALUE).anyTimes();
         EasyMock.expect(config.getMessageSizeEstimator()).andReturn(DefaultMessageSizeEstimator.DEFAULT).anyTimes();
-        ChannelPromise promise = EasyMock.createMock(ChannelPromise.class);
-        EasyMock.expect(promise.trySuccess()).andReturn(true).anyTimes();
 
         NioSocketChannel channel = EasyMock.createMock(NioSocketChannel.class);
         EasyMock.expect(channel.config()).andReturn(config).anyTimes();
+
+        ChannelPromise promise = EasyMock.createMock(ChannelPromise.class);
+        EasyMock.expect(promise.trySuccess()).andReturn(true).anyTimes();
+        EasyMock.expect(promise.channel()).andReturn(channel).anyTimes();
+
         EasyMock.replay(config, promise, channel);
 
         NioSocketChannelOutboundBuffer buffer = new NioSocketChannelOutboundBuffer(channel);
