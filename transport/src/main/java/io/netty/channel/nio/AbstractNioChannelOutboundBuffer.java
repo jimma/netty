@@ -18,26 +18,10 @@ package io.netty.channel.nio;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.ChannelOutboundBuffer;
-import io.netty.channel.ChannelPromise;
 
 public abstract class AbstractNioChannelOutboundBuffer extends ChannelOutboundBuffer {
     protected AbstractNioChannelOutboundBuffer(AbstractNioChannel channel) {
         super(channel);
-    }
-
-    @Override
-    protected long addMessage(Object msg, ChannelPromise promise) {
-        if (msg instanceof ByteBuf) {
-            ByteBuf buf = (ByteBuf) msg;
-            if (!buf.isDirect()) {
-                msg = toDirect(buf);
-            }
-        }
-        return addMessage0(msg, promise);
-    }
-
-    protected final long addMessage0(Object msg, ChannelPromise promise) {
-        return super.addMessage(msg, promise);
     }
 
     protected final ByteBuf toDirect(ByteBuf buf) {

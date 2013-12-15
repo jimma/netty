@@ -35,6 +35,6 @@ final class NioSctpChannelOutboundBuffer extends AbstractNioChannelOutboundBuffe
                 msg = new SctpMessage(packet.protocolIdentifier(), packet.streamIdentifier(), buf);
             }
         }
-        return addMessage0(msg, promise);
+        return super.addMessage(msg, promise);
     }
 }

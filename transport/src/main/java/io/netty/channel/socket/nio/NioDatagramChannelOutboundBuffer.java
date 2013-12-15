@@ -40,7 +40,7 @@ final class NioDatagramChannelOutboundBuffer extends AbstractNioChannelOutboundB
                 msg = toDirect(content);
             }
         }
-        return addMessage0(msg, promise);
+        return super.addMessage(msg, promise);
     }
 
     private static boolean isCopyNeeded(ByteBuf buf) {
