@@ -13,16 +13,15 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package io.netty.channel.socket.nio;
+package io.netty.channel.nio;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
-import io.netty.channel.AbstractChannel;
 import io.netty.channel.ChannelOutboundBuffer;
 import io.netty.channel.ChannelPromise;
 
-abstract class AbstractNioChannelOutboundBuffer extends ChannelOutboundBuffer {
-    protected AbstractNioChannelOutboundBuffer(AbstractChannel channel) {
+public abstract class AbstractNioChannelOutboundBuffer extends ChannelOutboundBuffer {
+    protected AbstractNioChannelOutboundBuffer(AbstractNioChannel channel) {
         super(channel);
     }
 
@@ -34,6 +33,10 @@ abstract class AbstractNioChannelOutboundBuffer extends ChannelOutboundBuffer {
                 msg = toDirect(buf);
             }
         }
+        return addMessage0(msg, promise);
+    }
+
+    protected final long addMessage0(Object msg, ChannelPromise promise) {
         return super.addMessage(msg, promise);
     }
 

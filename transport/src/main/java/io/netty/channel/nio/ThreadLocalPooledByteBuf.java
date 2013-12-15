@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package io.netty.channel.socket.nio;
+package io.netty.channel.nio;
 
 import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.buffer.UnpooledDirectByteBuf;
@@ -24,7 +24,7 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
 
 final class ThreadLocalPooledByteBuf extends UnpooledDirectByteBuf {
     private static final int threadLocalDirectBufferSize;
-    protected static final InternalLogger logger = InternalLoggerFactory.getInstance(ThreadLocalPooledByteBuf.class);
+    private static final InternalLogger logger = InternalLoggerFactory.getInstance(ThreadLocalPooledByteBuf.class);
 
     static {
         threadLocalDirectBufferSize = SystemPropertyUtil.getInt("io.netty.threadLocalDirectBufferSize", 64 * 1024);

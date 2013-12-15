@@ -17,8 +17,9 @@ package io.netty.channel.socket.nio;
 
 
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.AbstractChannel;
 import io.netty.channel.ChannelOutboundBuffer;
+import io.netty.channel.ChannelPromise;
+import io.netty.channel.nio.AbstractNioChannelOutboundBuffer;
 
 import java.nio.ByteBuffer;
 
@@ -30,9 +31,14 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
     private int nioBufferCount;
     private long nioBufferSize;
 
-    NioSocketChannelOutboundBuffer(AbstractChannel channel) {
+    NioSocketChannelOutboundBuffer(NioSocketChannel channel) {
         super(channel);
         nioBuffers = new ByteBuffer[INITIAL_CAPACITY];
+    }
+
+    @Override
+    protected long addMessage(Object msg, ChannelPromise promise) {
+        return super.addMessage(msg, promise);
     }
 
     @Override

@@ -17,10 +17,12 @@ package io.netty.channel.socket.nio;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.CompositeByteBuf;
-import io.netty.channel.AbstractChannel;
 import io.netty.channel.ChannelOutboundBuffer;
-import io.netty.channel.embedded.EmbeddedChannel;
+import io.netty.channel.ChannelPromise;
+import io.netty.channel.DefaultMessageSizeEstimator;
+import io.netty.channel.socket.SocketChannelConfig;
 import io.netty.util.CharsetUtil;
+import org.easymock.EasyMock;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
@@ -28,11 +30,22 @@ import java.nio.ByteBuffer;
 import static io.netty.buffer.Unpooled.*;
 import static org.junit.Assert.*;
 
-public class NioByteChannelOutboundBufferTest {
+public class NioSocketChannelOutboundBufferTest {
 
     @Test
     public void testEmptyNioBuffers() {
-        AbstractChannel channel = new EmbeddedChannel();
+        SocketChannelConfig config = EasyMock.createMock(SocketChannelConfig.class);
+        EasyMock.expect(config.getWriteBufferHighWaterMark()).andReturn(Integer.MAX_VALUE).anyTimes();
+        EasyMock.expect(config.getWriteBufferLowWaterMark()).andReturn(Integer.MAX_VALUE).anyTimes();
+        EasyMock.expect(config.getMessageSizeEstimator()).andReturn(DefaultMessageSizeEstimator.DEFAULT).anyTimes();
+
+        ChannelPromise promise = EasyMock.createMock(ChannelPromise.class);
+        EasyMock.expect(promise.trySuccess()).andReturn(true).anyTimes();
+
+        NioSocketChannel channel = EasyMock.createMock(NioSocketChannel.class);
+        EasyMock.expect(channel.config()).andReturn(config).anyTimes();
+        EasyMock.replay(config, promise, channel);
+
         NioSocketChannelOutboundBuffer buffer = new NioSocketChannelOutboundBuffer(channel);
         assertEquals(0, buffer.nioBufferCount());
         ByteBuffer[] buffers = buffer.nioBuffers();
@@ -42,11 +55,23 @@ public class NioByteChannelOutboundBufferTest {
         }
         assertEquals(0, buffer.nioBufferCount());
         release(buffer);
+        EasyMock.verify(config, promise, channel);
     }
 
     @Test
     public void testNioBuffersSingleBacked() {
-        AbstractChannel channel = new EmbeddedChannel();
+        SocketChannelConfig config = EasyMock.createMock(SocketChannelConfig.class);
+        EasyMock.expect(config.getWriteBufferHighWaterMark()).andReturn(Integer.MAX_VALUE).anyTimes();
+        EasyMock.expect(config.getWriteBufferLowWaterMark()).andReturn(Integer.MAX_VALUE).anyTimes();
+        EasyMock.expect(config.getMessageSizeEstimator()).andReturn(DefaultMessageSizeEstimator.DEFAULT).anyTimes();
+
+        ChannelPromise promise = EasyMock.createMock(ChannelPromise.class);
+        EasyMock.expect(promise.trySuccess()).andReturn(true).anyTimes();
+
+        NioSocketChannel channel = EasyMock.createMock(NioSocketChannel.class);
+        EasyMock.expect(channel.config()).andReturn(config).anyTimes();
+        EasyMock.replay(config, promise, channel);
+
         NioSocketChannelOutboundBuffer buffer = new NioSocketChannelOutboundBuffer(channel);
         assertEquals(0, buffer.nioBufferCount());
         ByteBuffer[] buffers = buffer.nioBuffers();
@@ -58,7 +83,7 @@ public class NioByteChannelOutboundBufferTest {
 
         ByteBuf buf = copiedBuffer("buf1", CharsetUtil.US_ASCII);
         ByteBuffer nioBuf = buf.internalNioBuffer(0, buf.readableBytes());
-        buffer.addMessage(buf, channel.voidPromise());
+        buffer.addMessage(buf, promise);
         buffers = buffer.nioBuffers();
         assertEquals("Should still be 0 as not flushed yet", 0, buffer.nioBufferCount());
         for (ByteBuffer b: buffers) {
@@ -76,16 +101,27 @@ public class NioByteChannelOutboundBufferTest {
             }
         }
         release(buffer);
+        EasyMock.verify(config, promise, channel);
     }
 
     @Test
     public void testNioBuffersExpand() {
-        AbstractChannel channel = new EmbeddedChannel();
+        SocketChannelConfig config = EasyMock.createMock(SocketChannelConfig.class);
+        EasyMock.expect(config.getWriteBufferHighWaterMark()).andReturn(Integer.MAX_VALUE).anyTimes();
+        EasyMock.expect(config.getWriteBufferLowWaterMark()).andReturn(Integer.MAX_VALUE).anyTimes();
+        EasyMock.expect(config.getMessageSizeEstimator()).andReturn(DefaultMessageSizeEstimator.DEFAULT).anyTimes();
+        ChannelPromise promise = EasyMock.createMock(ChannelPromise.class);
+        EasyMock.expect(promise.trySuccess()).andReturn(true).anyTimes();
+
+        NioSocketChannel channel = EasyMock.createMock(NioSocketChannel.class);
+        EasyMock.expect(channel.config()).andReturn(config).anyTimes();
+        EasyMock.replay(config, promise, channel);
+
         NioSocketChannelOutboundBuffer buffer = new NioSocketChannelOutboundBuffer(channel);
 
         ByteBuf buf = directBuffer().writeBytes("buf1".getBytes(CharsetUtil.US_ASCII));
         for (int i = 0; i < 64; i++) {
-            buffer.addMessage(buf.copy(), channel.voidPromise());
+            buffer.addMessage(buf.copy(), promise);
         }
         ByteBuffer[] nioBuffers = buffer.nioBuffers();
         assertEquals("Should still be 0 as not flushed yet", 0, buffer.nioBufferCount());
@@ -101,11 +137,22 @@ public class NioByteChannelOutboundBufferTest {
         }
         release(buffer);
         buf.release();
+        EasyMock.verify(config, promise, channel);
     }
 
     @Test
     public void testNioBuffersExpand2() {
-        AbstractChannel channel = new EmbeddedChannel();
+        SocketChannelConfig config = EasyMock.createMock(SocketChannelConfig.class);
+        EasyMock.expect(config.getWriteBufferHighWaterMark()).andReturn(Integer.MAX_VALUE).anyTimes();
+        EasyMock.expect(config.getWriteBufferLowWaterMark()).andReturn(Integer.MAX_VALUE).anyTimes();
+        EasyMock.expect(config.getMessageSizeEstimator()).andReturn(DefaultMessageSizeEstimator.DEFAULT).anyTimes();
+        ChannelPromise promise = EasyMock.createMock(ChannelPromise.class);
+        EasyMock.expect(promise.trySuccess()).andReturn(true).anyTimes();
+
+        NioSocketChannel channel = EasyMock.createMock(NioSocketChannel.class);
+        EasyMock.expect(channel.config()).andReturn(config).anyTimes();
+        EasyMock.replay(config, promise, channel);
+
         NioSocketChannelOutboundBuffer buffer = new NioSocketChannelOutboundBuffer(channel);
 
         CompositeByteBuf comp = compositeBuffer(256);
@@ -113,7 +160,7 @@ public class NioByteChannelOutboundBufferTest {
         for (int i = 0; i < 65; i++) {
             comp.addComponent(buf.copy()).writerIndex(comp.writerIndex() + buf.readableBytes());
         }
-        buffer.addMessage(comp, channel.voidPromise());
+        buffer.addMessage(comp, promise);
 
         ByteBuffer[] buffers = buffer.nioBuffers();
         assertEquals("Should still be 0 as not flushed yet", 0, buffer.nioBufferCount());
@@ -133,6 +180,7 @@ public class NioByteChannelOutboundBufferTest {
         }
         release(buffer);
         buf.release();
+        EasyMock.verify(config, promise, channel);
     }
 
     private static void release(ChannelOutboundBuffer buffer) {
