@@ -41,7 +41,7 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
         if (msg instanceof ByteBuf) {
             ByteBuf buf = (ByteBuf) msg;
             if (!buf.isDirect()) {
-                msg = toDirect(buf);
+                msg = toDirect(promise.channel(), buf);
             }
         }
         return super.addMessage(msg, promise);

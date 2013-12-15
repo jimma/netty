@@ -31,7 +31,7 @@ final class NioSctpChannelOutboundBuffer extends AbstractNioChannelOutboundBuffe
             SctpMessage packet = (SctpMessage) msg;
             ByteBuf content = packet.content();
             if (!content.isDirect() || content.nioBufferCount() > 1) {
-                ByteBuf buf = toDirect(content);
+                ByteBuf buf = toDirect(promise.channel(), content);
                 msg = new SctpMessage(packet.protocolIdentifier(), packet.streamIdentifier(), buf);
             }
         }

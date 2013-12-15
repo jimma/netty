@@ -17,6 +17,7 @@ package io.netty.channel.nio;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelOutboundBuffer;
 
 public abstract class AbstractNioChannelOutboundBuffer extends ChannelOutboundBuffer {
@@ -24,7 +25,7 @@ public abstract class AbstractNioChannelOutboundBuffer extends ChannelOutboundBu
         super(channel);
     }
 
-    protected final ByteBuf toDirect(ByteBuf buf) {
+    protected static ByteBuf toDirect(Channel channel, ByteBuf buf) {
         int readableBytes = buf.readableBytes();
         if (readableBytes == 0) {
             return buf;

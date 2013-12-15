@@ -31,13 +31,13 @@ final class NioDatagramChannelOutboundBuffer extends AbstractNioChannelOutboundB
             DatagramPacket packet = (DatagramPacket) msg;
             ByteBuf content = packet.content();
             if (isCopyNeeded(content)) {
-                ByteBuf buf = toDirect(content);
+                ByteBuf buf = toDirect(promise.channel(), content);
                 msg = new DatagramPacket(buf, packet.recipient(), packet.sender());
             }
         } else if (msg instanceof ByteBuf) {
             ByteBuf content = (ByteBuf) msg;
             if (isCopyNeeded(content)) {
-                msg = toDirect(content);
+                msg = toDirect(promise.channel(), content);
             }
         }
         return super.addMessage(msg, promise);
