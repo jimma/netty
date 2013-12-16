@@ -25,9 +25,7 @@ import io.netty.channel.ChannelPromise;
 import io.netty.channel.EventLoop;
 import io.netty.channel.FileRegion;
 import io.netty.channel.nio.AbstractNioByteChannel;
-import io.netty.channel.socket.DefaultSocketChannelConfig;
 import io.netty.channel.socket.ServerSocketChannel;
-import io.netty.channel.socket.SocketChannelConfig;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -51,7 +49,7 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
         }
     }
 
-    private final SocketChannelConfig config;
+    private final NioSocketChannelConfig config;
 
     /**
      * Create a new instance
@@ -75,7 +73,7 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
      */
     public NioSocketChannel(Channel parent, EventLoop eventLoop, SocketChannel socket) {
         super(parent, eventLoop, socket);
-        config = new DefaultSocketChannelConfig(this, socket.socket());
+        config = new DefaultNioSocketChannelConfig(this, socket.socket());
     }
 
     @Override
@@ -89,7 +87,7 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
     }
 
     @Override
-    public SocketChannelConfig config() {
+    public NioSocketChannelConfig config() {
         return config;
     }
 

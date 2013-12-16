@@ -31,15 +31,18 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
     private static final int INITIAL_CAPACITY = 32;
     private final Queue<ChannelFlushPromiseNotifier.FlushCheckpoint> promises =
             new ArrayDeque<ChannelFlushPromiseNotifier.FlushCheckpoint>();
+    private final NioSocketChannel channel;
 
     private ByteBuffer[] nioBuffers;
     private int nioBufferCount;
     private long nioBufferSize;
     private long totalPending;
     private long writeCounter;
+    private boolean inNotify;
 
     NioSocketChannelOutboundBuffer(NioSocketChannel channel) {
         super(channel);
+        this.channel = channel;
         nioBuffers = new ByteBuffer[INITIAL_CAPACITY];
     }
 
@@ -48,10 +51,15 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
         if (msg instanceof ByteBuf) {
             ByteBuf buf = (ByteBuf) msg;
 
-            if (buf.isReadable()) {
+            // Check if we are inNotify or if the last entry is not the same as the first
+            // This is needed because someone may write to the channel in a ChannelFutureListener which then
+            // could lead to have the buffer merged into the current buffer. In this case the current buffer may be
+            // removed as it was completely written before.
+            if (buf.isReadable() && channel.config().isWriteBufferAutoMerge() && (!inNotify || last() != first())) {
                 NioEntry entry = last();
                 if (entry != null) {
                     int size = entry.merge(buf, promise);
+
                     if (size != -1) {
                         return size;
                     }
@@ -70,6 +78,7 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
 
     private void addPromise(ChannelPromise promise) {
         if (isVoidPromise(promise)) {
+            // no need to add the promises to later notify if it is a VoidChannelPromise
             return;
         }
         ChannelFlushPromiseNotifier.FlushCheckpoint checkpoint;
@@ -288,43 +297,48 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
     }
 
     private void notifyPromises(Throwable cause) {
-        final long writeCounter = this.writeCounter;
-        for (;;) {
-            ChannelFlushPromiseNotifier.FlushCheckpoint cp = promises.peek();
-            if (cp == null) {
-                // Reset the counter if there's nothing in the notification list.
-                this.writeCounter = 0;
-                totalPending = 0;
-                break;
-            }
-
-            if (cp.flushCheckpoint() > writeCounter) {
-                if (writeCounter > 0 && promises.size() == 1) {
+        try {
+            inNotify = true;
+            final long writeCounter = this.writeCounter;
+            for (;;) {
+                ChannelFlushPromiseNotifier.FlushCheckpoint cp = promises.peek();
+                if (cp == null) {
+                    // Reset the counter if there's nothing in the notification list.
                     this.writeCounter = 0;
-                    totalPending -= writeCounter;
-                    cp.flushCheckpoint(cp.flushCheckpoint() - writeCounter);
+                    totalPending = 0;
+                    break;
                 }
-                break;
+
+                if (cp.flushCheckpoint() > writeCounter) {
+                    if (writeCounter > 0 && promises.size() == 1) {
+                        this.writeCounter = 0;
+                        totalPending -= writeCounter;
+                        cp.flushCheckpoint(cp.flushCheckpoint() - writeCounter);
+                    }
+                    break;
+                }
+
+                promises.remove();
+                if (cause == null) {
+                    cp.promise().trySuccess();
+                } else {
+                    safeFail(cp.promise(), cause);
+                }
             }
 
-            promises.remove();
-            if (cause == null) {
-                cp.promise().trySuccess();
-            } else {
-                safeFail(cp.promise(), cause);
+            // Avoid overflow
+            final long newWriteCounter = this.writeCounter;
+            if (newWriteCounter >= 0x8000000000L) {
+                // Reset the counter only when the counter grew pretty large
+                // so that we can reduce the cost of updating all entries in the notification list.
+                this.writeCounter = 0;
+                totalPending -= newWriteCounter;
+                for (ChannelFlushPromiseNotifier.FlushCheckpoint cp: promises) {
+                    cp.flushCheckpoint(cp.flushCheckpoint() - newWriteCounter);
+                }
             }
-        }
-
-        // Avoid overflow
-        final long newWriteCounter = this.writeCounter;
-        if (newWriteCounter >= 0x8000000000L) {
-            // Reset the counter only when the counter grew pretty large
-            // so that we can reduce the cost of updating all entries in the notification list.
-            this.writeCounter = 0;
-            totalPending -= newWriteCounter;
-            for (ChannelFlushPromiseNotifier.FlushCheckpoint cp: promises) {
-                cp.flushCheckpoint(cp.flushCheckpoint() - newWriteCounter);
-            }
+        } finally {
+            inNotify = false;
         }
     }
 

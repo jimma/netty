@@ -20,7 +20,6 @@ import io.netty.buffer.CompositeByteBuf;
 import io.netty.channel.ChannelOutboundBuffer;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.DefaultMessageSizeEstimator;
-import io.netty.channel.socket.SocketChannelConfig;
 import io.netty.util.CharsetUtil;
 import org.easymock.EasyMock;
 import org.junit.Test;
@@ -34,10 +33,11 @@ public class NioSocketChannelOutboundBufferTest {
 
     @Test
     public void testEmptyNioBuffers() {
-        SocketChannelConfig config = EasyMock.createMock(SocketChannelConfig.class);
+        NioSocketChannelConfig config = EasyMock.createMock(NioSocketChannelConfig.class);
         EasyMock.expect(config.getWriteBufferHighWaterMark()).andReturn(Integer.MAX_VALUE).anyTimes();
         EasyMock.expect(config.getWriteBufferLowWaterMark()).andReturn(Integer.MAX_VALUE).anyTimes();
         EasyMock.expect(config.getMessageSizeEstimator()).andReturn(DefaultMessageSizeEstimator.DEFAULT).anyTimes();
+        EasyMock.expect(config.isWriteBufferAutoMerge()).andReturn(true).anyTimes();
 
         NioSocketChannel channel = EasyMock.createMock(NioSocketChannel.class);
         EasyMock.expect(channel.config()).andReturn(config).anyTimes();
@@ -62,10 +62,11 @@ public class NioSocketChannelOutboundBufferTest {
 
     @Test
     public void testNioBuffersSingleBacked() {
-        SocketChannelConfig config = EasyMock.createMock(SocketChannelConfig.class);
+        NioSocketChannelConfig config = EasyMock.createMock(NioSocketChannelConfig.class);
         EasyMock.expect(config.getWriteBufferHighWaterMark()).andReturn(Integer.MAX_VALUE).anyTimes();
         EasyMock.expect(config.getWriteBufferLowWaterMark()).andReturn(Integer.MAX_VALUE).anyTimes();
         EasyMock.expect(config.getMessageSizeEstimator()).andReturn(DefaultMessageSizeEstimator.DEFAULT).anyTimes();
+        EasyMock.expect(config.isWriteBufferAutoMerge()).andReturn(true).anyTimes();
 
         NioSocketChannel channel = EasyMock.createMock(NioSocketChannel.class);
         EasyMock.expect(channel.config()).andReturn(config).anyTimes();
@@ -110,10 +111,11 @@ public class NioSocketChannelOutboundBufferTest {
 
     @Test
     public void testNioBuffersExpand() {
-        SocketChannelConfig config = EasyMock.createMock(SocketChannelConfig.class);
+        NioSocketChannelConfig config = EasyMock.createMock(NioSocketChannelConfig.class);
         EasyMock.expect(config.getWriteBufferHighWaterMark()).andReturn(Integer.MAX_VALUE).anyTimes();
         EasyMock.expect(config.getWriteBufferLowWaterMark()).andReturn(Integer.MAX_VALUE).anyTimes();
         EasyMock.expect(config.getMessageSizeEstimator()).andReturn(DefaultMessageSizeEstimator.DEFAULT).anyTimes();
+        EasyMock.expect(config.isWriteBufferAutoMerge()).andReturn(true).anyTimes();
 
         NioSocketChannel channel = EasyMock.createMock(NioSocketChannel.class);
         EasyMock.expect(channel.config()).andReturn(config).anyTimes();
@@ -149,10 +151,11 @@ public class NioSocketChannelOutboundBufferTest {
 
     @Test
     public void testNioBuffersExpand2() {
-        SocketChannelConfig config = EasyMock.createMock(SocketChannelConfig.class);
+        NioSocketChannelConfig config = EasyMock.createMock(NioSocketChannelConfig.class);
         EasyMock.expect(config.getWriteBufferHighWaterMark()).andReturn(Integer.MAX_VALUE).anyTimes();
         EasyMock.expect(config.getWriteBufferLowWaterMark()).andReturn(Integer.MAX_VALUE).anyTimes();
         EasyMock.expect(config.getMessageSizeEstimator()).andReturn(DefaultMessageSizeEstimator.DEFAULT).anyTimes();
+        EasyMock.expect(config.isWriteBufferAutoMerge()).andReturn(true).anyTimes();
 
         NioSocketChannel channel = EasyMock.createMock(NioSocketChannel.class);
         EasyMock.expect(channel.config()).andReturn(config).anyTimes();
