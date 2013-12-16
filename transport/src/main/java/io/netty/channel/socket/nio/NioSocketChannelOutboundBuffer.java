@@ -69,6 +69,9 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
     }
 
     private void addPromise(ChannelPromise promise) {
+        if (isVoidPromise(promise)) {
+            return;
+        }
         ChannelFlushPromiseNotifier.FlushCheckpoint checkpoint;
         if (promise instanceof ChannelFlushPromiseNotifier.FlushCheckpoint) {
             checkpoint = (ChannelFlushPromiseNotifier.FlushCheckpoint) promise;

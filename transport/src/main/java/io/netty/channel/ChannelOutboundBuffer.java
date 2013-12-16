@@ -186,6 +186,10 @@ public class ChannelOutboundBuffer {
         }
     }
 
+    protected static boolean isVoidPromise(ChannelPromise promise) {
+        return promise instanceof VoidChannelPromise;
+    }
+
     public boolean remove() {
         if (isEmpty()) {
             return false;
@@ -311,7 +315,7 @@ public class ChannelOutboundBuffer {
     }
 
     protected static void safeFail(ChannelPromise promise, Throwable cause) {
-        if (!(promise instanceof VoidChannelPromise) && !promise.tryFailure(cause)) {
+        if (!isVoidPromise(promise) && !promise.tryFailure(cause)) {
             logger.warn("Promise done already: {} - new exception is:", promise, cause);
         }
     }
