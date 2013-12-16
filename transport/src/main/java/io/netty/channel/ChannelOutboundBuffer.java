@@ -38,10 +38,10 @@ public class ChannelOutboundBuffer {
     protected static final InternalLogger logger = InternalLoggerFactory.getInstance(ChannelOutboundBuffer.class);
     private final AbstractChannel channel;
 
-    protected Entry first;
-    protected Entry last;
-    protected int flushed;
-    protected int messages;
+    private Entry first;
+    private Entry last;
+    private int flushed;
+    private int messages;
 
     private boolean inFail;
 
@@ -56,6 +56,14 @@ public class ChannelOutboundBuffer {
 
     protected ChannelOutboundBuffer(AbstractChannel channel) {
         this.channel = channel;
+    }
+
+    protected Entry first() {
+        return first;
+    }
+
+    protected Entry last() {
+        return last;
     }
 
     protected long addMessage(Object msg, ChannelPromise promise) {
@@ -146,7 +154,7 @@ public class ChannelOutboundBuffer {
         }
     }
 
-    private static long total(Object msg) {
+    protected static long total(Object msg) {
         if (msg instanceof ByteBuf) {
             return ((ByteBuf) msg).readableBytes();
         }
@@ -316,9 +324,9 @@ public class ChannelOutboundBuffer {
         protected Object msg;
         private ChannelPromise promise;
         private long progress;
-        private long total;
-        private long pendingSize;
-        private Entry next;
+        protected long total;
+        protected long pendingSize;
+        protected Entry next;
         private Entry prev;
 
         public Entry next() {

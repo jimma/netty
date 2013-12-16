@@ -47,14 +47,28 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
     protected long addMessage(Object msg, ChannelPromise promise) {
         if (msg instanceof ByteBuf) {
             ByteBuf buf = (ByteBuf) msg;
-            if (!buf.isDirect()) {
-                msg = toDirect(promise.channel(), buf);
+
+            if (buf.isReadable()) {
+                NioEntry entry = last();
+                if (entry != null) {
+                    int size = entry.merge(buf, promise);
+                    if (size != -1) {
+                        return size;
+                    }
+                }
+                if (!buf.isDirect()) {
+                    msg = toDirect(promise.channel(), buf);
+                }
             }
         }
         long size = super.addMessage(msg, promise);
         assert size >= 0;
         totalPending += size;
+        addPromise(promise);
+        return size;
+    }
 
+    private void addPromise(ChannelPromise promise) {
         ChannelFlushPromiseNotifier.FlushCheckpoint checkpoint;
         if (promise instanceof ChannelFlushPromiseNotifier.FlushCheckpoint) {
             checkpoint = (ChannelFlushPromiseNotifier.FlushCheckpoint) promise;
@@ -64,7 +78,6 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
         }
 
         promises.offer(checkpoint);
-        return size;
     }
 
     @Override
@@ -79,6 +92,16 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
             writeCounter += amount;
             notifyPromises(null);
         }
+    }
+
+    @Override
+    protected NioEntry first() {
+        return (NioEntry) super.first();
+    }
+
+    @Override
+    protected NioEntry last() {
+        return (NioEntry) super.last();
     }
 
     /**
@@ -98,8 +121,8 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
 
         if (!isEmpty()) {
             ByteBuffer[] nioBuffers = this.nioBuffers;
-            NioEntry entry = (NioEntry) first;
-            int i = flushed;
+            NioEntry entry = first();
+            int i = size();
 
             for (;;) {
                 Object m = entry.msg();
@@ -117,7 +140,8 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
                     nioBufferSize += readableBytes;
                     int count = entry.count;
                     if (count == -1) {
-                        entry.count = count = buf.nioBufferCount();
+                        count = buf.nioBufferCount();
+                        // entry.count =
                     }
                     int neededSpace = nioBufferCount + count;
                     if (neededSpace > nioBuffers.length) {
@@ -129,14 +153,16 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
                         if (nioBuf == null) {
                             // cache ByteBuffer as it may need to create a new ByteBuffer instance if its a
                             // derived buffer
-                            entry.buf = nioBuf = buf.internalNioBuffer(readerIndex, readableBytes);
+                            nioBuf = buf.internalNioBuffer(readerIndex, readableBytes);
+                            // entry.buf =
                         }
                         nioBuffers[nioBufferCount ++] = nioBuf;
                     } else {
                         ByteBuffer[] nioBufs = entry.buffers;
                         if (nioBufs == null) {
                             // cached ByteBuffers as they may be expensive to create in terms of Object allocation
-                            entry.buffers = nioBufs = buf.nioBuffers();
+                            nioBufs = buf.nioBuffers();
+                            // entry.buffers =
                         }
                         nioBufferCount = fillBufferArray(nioBufs, nioBuffers, nioBufferCount);
                     }
@@ -228,6 +254,36 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
             if (decrementAndNotify) {
                 decrementPendingOutboundBytes(pendingSize());
             }
+        }
+
+        private int merge(ByteBuf buffer, ChannelPromise promise) {
+            if (!(msg instanceof ByteBuf)) {
+                return -1;
+            }
+            ByteBuf last = (ByteBuf) msg;
+            int readable = buffer.readableBytes();
+            if (last.nioBufferCount() == 1 && last.writableBytes() >= readable) {
+                // reset cached stuff
+                buffers = null;
+                buf = null;
+                count = -1;
+
+                // merge bytes in and release the original buffer
+                last.writeBytes(buffer);
+                safeRelease(buffer);
+
+                totalPending += readable;
+                addPromise(promise);
+
+                pendingSize += readable;
+                total += readable;
+
+                // increment pending bytes after adding message to the unflushed arrays.
+                // See https://github.com/netty/netty/issues/1619
+                incrementPendingOutboundBytes(readable);
+                return readable;
+            }
+            return -1;
         }
     }
 
