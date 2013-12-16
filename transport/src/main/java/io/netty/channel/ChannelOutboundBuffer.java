@@ -94,7 +94,7 @@ public class ChannelOutboundBuffer {
      * Increment the pending bytes which will be written at some point.
      * This method is thread-safe!
      */
-    void incrementPendingOutboundBytes(int size) {
+    protected void incrementPendingOutboundBytes(int size) {
         // Cache the channel and check for null to make sure we not produce a NPE in case of the Channel gets
         // recycled while process this method.
         Channel channel = this.channel;
@@ -122,7 +122,7 @@ public class ChannelOutboundBuffer {
      * Decrement the pending bytes which will be written at some point.
      * This method is thread-safe!
      */
-    void decrementPendingOutboundBytes(int size) {
+    protected void decrementPendingOutboundBytes(long size) {
         // Cache the channel and check for null to make sure we not produce a NPE in case of the Channel gets
         // recycled while process this method.
         Channel channel = this.channel;
@@ -169,6 +169,7 @@ public class ChannelOutboundBuffer {
 
     public void progress(long amount) {
         Entry e = first;
+        e.pendingSize -= amount;
         ChannelPromise p = e.promise;
         if (p instanceof ChannelProgressivePromise) {
             long progress = e.progress + amount;
@@ -190,7 +191,7 @@ public class ChannelOutboundBuffer {
 
         messages--;
         flushed--;
-        e.sucess();
+        e.success();
 
         return true;
     }
@@ -208,7 +209,7 @@ public class ChannelOutboundBuffer {
 
         messages--;
         flushed--;
-        e.fail(cause);
+        e.fail(cause, true);
 
         return true;
     }
@@ -277,7 +278,7 @@ public class ChannelOutboundBuffer {
                 e.fail(cause, false);
 
                 // Just decrease; do not trigger any events via decrementPendingOutboundBytes()
-                int size = e.pendingSize;
+                long size = e.pendingSize;
                 long oldValue = totalPendingSize;
                 long newWriteBufferSize = oldValue - size;
                 while (!TOTAL_PENDING_SIZE_UPDATER.compareAndSet(this, oldValue, newWriteBufferSize)) {
@@ -301,7 +302,7 @@ public class ChannelOutboundBuffer {
         }
     }
 
-    private static void safeFail(ChannelPromise promise, Throwable cause) {
+    protected static void safeFail(ChannelPromise promise, Throwable cause) {
         if (!(promise instanceof VoidChannelPromise) && !promise.tryFailure(cause)) {
             logger.warn("Promise done already: {} - new exception is:", promise, cause);
         }
@@ -316,7 +317,7 @@ public class ChannelOutboundBuffer {
         private ChannelPromise promise;
         private long progress;
         private long total;
-        private int pendingSize;
+        private long pendingSize;
         private Entry next;
         private Entry prev;
 
@@ -332,14 +333,10 @@ public class ChannelOutboundBuffer {
             return msg;
         }
 
-        public void sucess() {
+        public void success() {
             safeRelease(msg);
             promise.trySuccess();
             decrementPendingOutboundBytes(pendingSize);
-        }
-
-        public void fail(Throwable cause) {
-            fail(cause, true);
         }
 
         public void fail(Throwable cause, boolean decrementAndNotify) {
@@ -348,6 +345,10 @@ public class ChannelOutboundBuffer {
             if (decrementAndNotify) {
                 decrementPendingOutboundBytes(pendingSize);
             }
+        }
+
+        public long pendingSize() {
+            return pendingSize;
         }
     }
 }
