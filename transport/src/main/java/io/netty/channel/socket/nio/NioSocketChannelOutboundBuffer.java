@@ -140,8 +140,7 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
                     nioBufferSize += readableBytes;
                     int count = entry.count;
                     if (count == -1) {
-                        count = buf.nioBufferCount();
-                        // entry.count =
+                        entry.count = count = buf.nioBufferCount();
                     }
                     int neededSpace = nioBufferCount + count;
                     if (neededSpace > nioBuffers.length) {
@@ -153,16 +152,14 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
                         if (nioBuf == null) {
                             // cache ByteBuffer as it may need to create a new ByteBuffer instance if its a
                             // derived buffer
-                            nioBuf = buf.internalNioBuffer(readerIndex, readableBytes);
-                            // entry.buf =
+                            entry.buf = nioBuf = buf.internalNioBuffer(readerIndex, readableBytes);
                         }
                         nioBuffers[nioBufferCount ++] = nioBuf;
                     } else {
                         ByteBuffer[] nioBufs = entry.buffers;
                         if (nioBufs == null) {
                             // cached ByteBuffers as they may be expensive to create in terms of Object allocation
-                            nioBufs = buf.nioBuffers();
-                            // entry.buffers =
+                            entry.buffers = nioBufs = buf.nioBuffers();
                         }
                         nioBufferCount = fillBufferArray(nioBufs, nioBuffers, nioBufferCount);
                     }
