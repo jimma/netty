@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicLongFieldUpdater;
  */
 public class ChannelOutboundBuffer {
 
-    protected static final InternalLogger logger = InternalLoggerFactory.getInstance(ChannelOutboundBuffer.class);
+    private static final InternalLogger logger = InternalLoggerFactory.getInstance(ChannelOutboundBuffer.class);
     private final AbstractChannel channel;
 
     private Entry first;

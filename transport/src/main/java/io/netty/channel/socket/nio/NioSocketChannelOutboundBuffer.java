@@ -17,7 +17,7 @@ package io.netty.channel.socket.nio;
 
 
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.ChannelFlushPromiseNotifier;
+import io.netty.channel.ChannelFlushPromiseNotifier.FlushCheckpoint;
 import io.netty.channel.ChannelOutboundBuffer;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.nio.AbstractNioChannelOutboundBuffer;
@@ -29,8 +29,8 @@ import java.util.Queue;
 final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuffer {
 
     private static final int INITIAL_CAPACITY = 32;
-    private final Queue<ChannelFlushPromiseNotifier.FlushCheckpoint> promises =
-            new ArrayDeque<ChannelFlushPromiseNotifier.FlushCheckpoint>();
+    private final Queue<FlushCheckpoint> promises =
+            new ArrayDeque<FlushCheckpoint>();
     private final NioSocketChannel channel;
 
     private ByteBuffer[] nioBuffers;
@@ -81,9 +81,9 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
             // no need to add the promises to later notify if it is a VoidChannelPromise
             return;
         }
-        ChannelFlushPromiseNotifier.FlushCheckpoint checkpoint;
-        if (promise instanceof ChannelFlushPromiseNotifier.FlushCheckpoint) {
-            checkpoint = (ChannelFlushPromiseNotifier.FlushCheckpoint) promise;
+        FlushCheckpoint checkpoint;
+        if (promise instanceof FlushCheckpoint) {
+            checkpoint = (FlushCheckpoint) promise;
             checkpoint.flushCheckpoint(totalPending);
         } else {
             checkpoint = new DefaultFlushCheckpoint(totalPending, promise);
@@ -271,7 +271,7 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
             }
             ByteBuf last = (ByteBuf) msg;
             int readable = buffer.readableBytes();
-            if (last.nioBufferCount() == 1 && last.writableBytes() >= readable) {
+            if (last.nioBufferCount() == 1 && last.isWritable(readable)) {
                 // reset cached stuff
                 buffers = null;
                 buf = null;
@@ -301,7 +301,7 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
             inNotify = true;
             final long writeCounter = this.writeCounter;
             for (;;) {
-                ChannelFlushPromiseNotifier.FlushCheckpoint cp = promises.peek();
+                FlushCheckpoint cp = promises.peek();
                 if (cp == null) {
                     // Reset the counter if there's nothing in the notification list.
                     this.writeCounter = 0;
@@ -333,7 +333,7 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
                 // so that we can reduce the cost of updating all entries in the notification list.
                 this.writeCounter = 0;
                 totalPending -= newWriteCounter;
-                for (ChannelFlushPromiseNotifier.FlushCheckpoint cp: promises) {
+                for (FlushCheckpoint cp: promises) {
                     cp.flushCheckpoint(cp.flushCheckpoint() - newWriteCounter);
                 }
             }
@@ -342,7 +342,7 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
         }
     }
 
-    private static class DefaultFlushCheckpoint implements ChannelFlushPromiseNotifier.FlushCheckpoint {
+    private static class DefaultFlushCheckpoint implements FlushCheckpoint {
         private long checkpoint;
         private final ChannelPromise future;
 
