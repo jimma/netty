@@ -25,6 +25,9 @@ public abstract class AbstractNioChannelOutboundBuffer extends ChannelOutboundBu
         super(channel);
     }
 
+    protected AbstractNioChannelOutboundBuffer() {
+    }
+
     protected static ByteBuf toDirect(Channel channel, ByteBuf buf) {
         int readableBytes = buf.readableBytes();
         if (readableBytes == 0) {

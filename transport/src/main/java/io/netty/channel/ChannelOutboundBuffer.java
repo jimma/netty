@@ -21,6 +21,7 @@ package io.netty.channel;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufHolder;
+import io.netty.util.Recycler;
 import io.netty.util.ReferenceCountUtil;
 import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
@@ -36,13 +37,12 @@ import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 public class ChannelOutboundBuffer {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(ChannelOutboundBuffer.class);
-    private final AbstractChannel channel;
+    protected AbstractChannel channel;
 
     private Entry first;
     private Entry last;
     private int flushed;
     private int messages;
-
     private boolean inFail;
 
     private static final AtomicLongFieldUpdater<ChannelOutboundBuffer> TOTAL_PENDING_SIZE_UPDATER =
@@ -54,7 +54,11 @@ public class ChannelOutboundBuffer {
             AtomicIntegerFieldUpdater.newUpdater(ChannelOutboundBuffer.class, "writable");
     private volatile int writable = 1;
 
-    protected ChannelOutboundBuffer(AbstractChannel channel) {
+    protected ChannelOutboundBuffer() {
+        // only for sub-classes
+    }
+
+    public ChannelOutboundBuffer(AbstractChannel channel) {
         this.channel = channel;
     }
 
@@ -304,6 +308,7 @@ public class ChannelOutboundBuffer {
             messages = flushed;
             inFail = false;
         }
+        recycle();
     }
 
     protected static void safeRelease(Object message) {
@@ -321,17 +326,36 @@ public class ChannelOutboundBuffer {
     }
 
     protected Entry newEntry() {
-        return new Entry();
+        return Entry.newInstance(this);
     }
 
-    protected class Entry {
-        protected Object msg;
+    protected static class Entry {
+        private static final Recycler<Entry> RECYCLER = new Recycler<Entry>() {
+            @Override
+            protected Entry newObject(Handle handle) {
+                return new Entry(handle);
+            }
+        };
+
+        public static Entry newInstance(ChannelOutboundBuffer buffer) {
+            Entry entry = RECYCLER.get();
+            entry.buffer = buffer;
+            return entry;
+        }
+
+        protected final Recycler.Handle entryHandle;
+        private Object msg;
         private ChannelPromise promise;
         private long progress;
         protected long total;
         protected long pendingSize;
         protected Entry next;
         private Entry prev;
+        protected ChannelOutboundBuffer buffer;
+
+        protected Entry(Recycler.Handle entryHandle) {
+            this.entryHandle = entryHandle;
+        }
 
         public Entry next() {
             return next;
@@ -346,21 +370,55 @@ public class ChannelOutboundBuffer {
         }
 
         public void success() {
-            safeRelease(msg);
-            promise.trySuccess();
-            decrementPendingOutboundBytes(pendingSize);
+            try {
+                safeRelease(msg);
+                promise.trySuccess();
+                buffer.decrementPendingOutboundBytes(pendingSize);
+            } finally {
+                clear();
+            }
         }
 
         public void fail(Throwable cause, boolean decrementAndNotify) {
-            safeRelease(msg);
-            safeFail(promise, cause);
-            if (decrementAndNotify) {
-                decrementPendingOutboundBytes(pendingSize);
+            try {
+                safeRelease(msg);
+                safeFail(promise, cause);
+                if (decrementAndNotify) {
+                    buffer.decrementPendingOutboundBytes(pendingSize);
+                }
+            } finally {
+                clear();
             }
         }
 
         public long pendingSize() {
             return pendingSize;
         }
+
+        protected void clear() {
+            msg = null;
+            promise = null;
+            progress = 0;
+            total = 0;
+            pendingSize = 0;
+            next = null;
+            prev = null;
+            buffer = null;
+            recycle();
+        }
+
+        protected void recycle() {
+            RECYCLER.recycle(this, entryHandle);
+        }
+    }
+
+    protected void recycle() {
+        channel = null;
+        first = null;
+        last = null;
+        flushed = 0;
+        messages = 0;
+        totalPendingSize = 0;
+        writable = 1;
     }
 }

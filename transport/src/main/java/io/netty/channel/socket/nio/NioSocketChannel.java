@@ -302,6 +302,6 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
 
     @Override
     protected ChannelOutboundBuffer newOutboundBuffer() {
-        return new NioSocketChannelOutboundBuffer(this);
+        return NioSocketChannelOutboundBuffer.newBuffer(this);
     }
 }

@@ -21,29 +21,42 @@ import io.netty.channel.ChannelFlushPromiseNotifier.FlushCheckpoint;
 import io.netty.channel.ChannelOutboundBuffer;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.nio.AbstractNioChannelOutboundBuffer;
+import io.netty.util.Recycler;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Queue;
 
 final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuffer {
 
-    private static final int INITIAL_CAPACITY = 32;
-    private final Queue<FlushCheckpoint> promises =
-            new ArrayDeque<FlushCheckpoint>();
-    private final NioSocketChannel channel;
+    private static final Recycler<NioSocketChannelOutboundBuffer> RECYCLER =
+            new Recycler<NioSocketChannelOutboundBuffer>() {
+        @Override
+        protected NioSocketChannelOutboundBuffer newObject(Handle handle) {
+            return new NioSocketChannelOutboundBuffer(handle);
+        }
+    };
 
-    private ByteBuffer[] nioBuffers;
+    static NioSocketChannelOutboundBuffer newBuffer(NioSocketChannel channel) {
+        NioSocketChannelOutboundBuffer entry = RECYCLER.get();
+        entry.channel = channel;
+        return entry;
+    }
+
+    private static final int INITIAL_CAPACITY = 32;
+    private final Recycler.Handle handle;
+    private final ArrayDeque<FlushCheckpoint> promises =
+            new ArrayDeque<FlushCheckpoint>();
+    private ByteBuffer[] nioBuffers = new ByteBuffer[INITIAL_CAPACITY];
     private int nioBufferCount;
     private long nioBufferSize;
     private long totalPending;
     private long writeCounter;
     private boolean inNotify;
 
-    NioSocketChannelOutboundBuffer(NioSocketChannel channel) {
-        super(channel);
-        this.channel = channel;
-        nioBuffers = new ByteBuffer[INITIAL_CAPACITY];
+    private NioSocketChannelOutboundBuffer(Recycler.Handle handle) {
+        this.handle = handle;
     }
 
     @Override
@@ -55,7 +68,8 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
             // This is needed because someone may write to the channel in a ChannelFutureListener which then
             // could lead to have the buffer merged into the current buffer. In this case the current buffer may be
             // removed as it was completely written before.
-            if (buf.isReadable() && channel.config().isWriteBufferAutoMerge() && (!inNotify || last() != first())) {
+            if (buf.isReadable() && ((NioSocketChannel) channel).config().isWriteBufferAutoMerge()
+                    && (!inNotify || last() != first())) {
                 NioEntry entry = last();
                 if (entry != null) {
                     int size = entry.merge(buf, promise);
@@ -228,13 +242,59 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
 
     @Override
     protected NioEntry newEntry() {
-        return new NioEntry();
+        return NioEntry.newInstance(this);
     }
 
-    final class NioEntry extends Entry {
+    @Override
+    protected void recycle() {
+        super.recycle();
+        inNotify = false;
+        promises.clear();
+        nioBufferCount = 0;
+        nioBufferSize = 0;
+        totalPending = 0;
+        writeCounter = 0;
+        if (nioBuffers.length > INITIAL_CAPACITY) {
+            nioBuffers = new ByteBuffer[INITIAL_CAPACITY];
+        } else {
+            // null out the nio buffers array so the can be GC'ed
+            // https://github.com/netty/netty/issues/1763
+            Arrays.fill(nioBuffers, null);
+        }
+
+        RECYCLER.recycle(this, handle);
+    }
+
+    static final class NioEntry extends Entry {
+
+        private static final Recycler<NioEntry> RECYCLER = new Recycler<NioEntry>() {
+            @Override
+            protected NioEntry newObject(Handle handle) {
+                return new NioEntry(handle);
+            }
+        };
+
+        public static NioEntry newInstance(NioSocketChannelOutboundBuffer buffer) {
+            NioEntry entry = RECYCLER.get();
+            entry.buffer = buffer;
+            return entry;
+        }
+
         ByteBuffer[] buffers;
         ByteBuffer buf;
         int count = -1;
+
+        private NioEntry(Recycler.Handle entryHandle) {
+            super(entryHandle);
+        }
+
+        @Override
+        protected void clear() {
+            buffers = null;
+            buf = null;
+            count = -1;
+            super.clear();
+        }
 
         @Override
         public NioEntry next() {
@@ -248,30 +308,47 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
 
         @Override
         public void success() {
-            writeCounter += pendingSize();
-            safeRelease(msg);
-            notifyPromises(null);
-            decrementPendingOutboundBytes(pendingSize());
+            try {
+                NioSocketChannelOutboundBuffer buffer = (NioSocketChannelOutboundBuffer) this.buffer;
+                buffer.writeCounter += pendingSize();
+                safeRelease(msg());
+                buffer.notifyPromises(null);
+                buffer.decrementPendingOutboundBytes(pendingSize());
+            } finally {
+                clear();
+            }
         }
 
         @Override
         public void fail(Throwable cause, boolean decrementAndNotify) {
-            writeCounter += pendingSize();
-            safeRelease(msg);
-            notifyPromises(cause);
+            try {
+                NioSocketChannelOutboundBuffer buffer = (NioSocketChannelOutboundBuffer) this.buffer;
+                buffer.writeCounter += pendingSize();
+                safeRelease(msg());
+                buffer.notifyPromises(cause);
 
-            if (decrementAndNotify) {
-                decrementPendingOutboundBytes(pendingSize());
+                if (decrementAndNotify) {
+                    buffer.decrementPendingOutboundBytes(pendingSize());
+                }
+            } finally {
+                clear();
             }
         }
 
+        @Override
+        protected void recycle() {
+            RECYCLER.recycle(this, entryHandle);
+        }
+
         private int merge(ByteBuf buffer, ChannelPromise promise) {
-            if (!(msg instanceof ByteBuf)) {
+            if (!(msg() instanceof ByteBuf)) {
                 return -1;
             }
-            ByteBuf last = (ByteBuf) msg;
+            ByteBuf last = (ByteBuf) msg();
             int readable = buffer.readableBytes();
             if (last.nioBufferCount() == 1 && last.isWritable(readable)) {
+                NioSocketChannelOutboundBuffer outboundBuffer = (NioSocketChannelOutboundBuffer) this.buffer;
+
                 // reset cached stuff
                 buffers = null;
                 buf = null;
@@ -281,15 +358,15 @@ final class NioSocketChannelOutboundBuffer extends AbstractNioChannelOutboundBuf
                 last.writeBytes(buffer);
                 safeRelease(buffer);
 
-                totalPending += readable;
-                addPromise(promise);
+                outboundBuffer.totalPending += readable;
+                outboundBuffer.addPromise(promise);
 
                 pendingSize += readable;
                 total += readable;
 
                 // increment pending bytes after adding message to the unflushed arrays.
                 // See https://github.com/netty/netty/issues/1619
-                incrementPendingOutboundBytes(readable);
+                outboundBuffer.incrementPendingOutboundBytes(readable);
                 return readable;
             }
             return -1;

@@ -48,7 +48,7 @@ public class NioSocketChannelOutboundBufferTest {
 
         EasyMock.replay(config, promise, channel);
 
-        NioSocketChannelOutboundBuffer buffer = new NioSocketChannelOutboundBuffer(channel);
+        NioSocketChannelOutboundBuffer buffer = NioSocketChannelOutboundBuffer.newBuffer(channel);
         assertEquals(0, buffer.nioBufferCount());
         ByteBuffer[] buffers = buffer.nioBuffers();
         assertEquals(32, buffers.length);
@@ -77,7 +77,7 @@ public class NioSocketChannelOutboundBufferTest {
 
         EasyMock.replay(config, promise, channel);
 
-        NioSocketChannelOutboundBuffer buffer = new NioSocketChannelOutboundBuffer(channel);
+        NioSocketChannelOutboundBuffer buffer = NioSocketChannelOutboundBuffer.newBuffer(channel);
         assertEquals(0, buffer.nioBufferCount());
         ByteBuffer[] buffers = buffer.nioBuffers();
         assertEquals(32, buffers.length);
@@ -126,7 +126,7 @@ public class NioSocketChannelOutboundBufferTest {
 
         EasyMock.replay(config, promise, channel);
 
-        NioSocketChannelOutboundBuffer buffer = new NioSocketChannelOutboundBuffer(channel);
+        NioSocketChannelOutboundBuffer buffer = NioSocketChannelOutboundBuffer.newBuffer(channel);
 
         ByteBuf buf = directBuffer().writeBytes("buf1".getBytes(CharsetUtil.US_ASCII));
         for (int i = 0; i < 64; i++) {
@@ -166,7 +166,7 @@ public class NioSocketChannelOutboundBufferTest {
 
         EasyMock.replay(config, promise, channel);
 
-        NioSocketChannelOutboundBuffer buffer = new NioSocketChannelOutboundBuffer(channel);
+        NioSocketChannelOutboundBuffer buffer = NioSocketChannelOutboundBuffer.newBuffer(channel);
 
         CompositeByteBuf comp = compositeBuffer(256);
         ByteBuf buf = directBuffer().writeBytes("buf1".getBytes(CharsetUtil.US_ASCII));
