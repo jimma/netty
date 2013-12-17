@@ -178,6 +178,11 @@ public abstract class HttpObjectDecoder extends ReplayingDecoder<HttpObjectDecod
     }
 
     @Override
+    public boolean isSingleDecode() {
+        return message == null && super.isSingleDecode();
+    }
+
+    @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf buffer, List<Object> out) throws Exception {
         switch (state()) {
         case SKIP_CONTROL_CHARS: {
